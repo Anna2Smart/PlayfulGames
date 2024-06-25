@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chemistry Crossword Puzzle</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .header .timer, .header .hint-reset {
+            font-size: 18px;
+        }
+        .hint-reset button {
+            margin-right: 10px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(15, 50px);
+            gap: 5px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .grid button {
+            width: 50px;
+            height: 50px;
+            font-size: 16px;
+            text-align: center;
+        }
+        .info {
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        .selected-bar {
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        .message {
+            margin-bottom: 10px;
+            color: red;
+            font-size: 18px;
+        }
+        .submit-btn {
+            font-size: 18px;
+            padding: 10px 20px;
+            margin-bottom: 20px;
+        }
+        .round, .score {
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="hint-reset">
+                <button onclick="giveHint()">Hint</button>
+                <button onclick="resetSelection()">Reset</button>
+            </div>
+            <div class="timer" id="timer"></div>
+        </div>
+        <div class="info" id="info"></div>
+        <div class="selected-bar" id="selected">Selected: </div>
+        <div class="grid" id="grid"></div>
+        <div class="message" id="message"></div>
+        <button class="submit-btn" onclick="submitAnswer()">Submit Answer</button>
+        <div class="round" id="round"></div>
+        <div class="score" id="score"></div>
+    </div>
+
+    <script>
+        const periodicTable = [
+            'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 
+            'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr', 
+            'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 
+            'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 
+            'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 
+            'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og'
+        ];
+        
+        const elements = [
+            { symbol: 'H2O', name: 'Water', description: 'Essential for all known forms of life.' },
+            { symbol: 'CO2', name: 'Carbon Dioxide', description: 'A greenhouse gas.' },
+            { symbol: 'NaCl', name: 'Sodium Chloride', description: 'Common table salt.' },
+            { symbol: 'CH4', name: 'Methane', description: 'A potent greenhouse gas.' },
+            { symbol: 'O2', name: 'Oxygen', description: 'Essential for respiration.' },
+            { symbol: 'N2', name: 'Nitrogen', description: 'Makes up 78% of the Earth’s atmosphere.' },
+            { symbol: 'NH3', name: 'Ammonia', description: 'Used in fertilizers.' },
+            { symbol: 'HCl', name: 'Hydrochloric Acid', description: 'Found in stomach acid.' },
+            { symbol: 'H2SO4', name: 'Sulfuric Acid', description: 'Used in car batteries.' },
+            { symbol: 'C6H12O6', name: 'Glucose', description: 'A simple sugar.' },
+        ];
+        elements.sort(() => Math.random() - 0.5);
+
+        let currentRound = 1;
+        let correctAnswers = 0;
+        let incorrectAnswers = 0;
+        let selectedSymbols = [];
+        let hintsUsed = 0;
+        let timerOption = false;
+        let timerRunning = false;
+        let timeStarted = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            startRound();
+            askTimerOption();
+        });
+
+        function populateGrid() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+
+            let requiredSymbols = elements[0].symbol.split('');
+            requiredSymbols = requiredSymbols.filter(symbol => !periodicTable.includes(symbol));
+            requiredSymbols = [...periodicTable, ...requiredSymbols];
+            requiredSymbols.sort(() => Math.random() - 0.5);
+
+            for (let row = 0; row < 15; row++) {
+                for (let col = 0; col < 15; col++) {
+                    const button = document.createElement('button');
+                    button.textContent = requiredSymbols[Math.floor(Math.random() * requiredSymbols.length)];
+                    button.addEventListener('click', () => selectSymbol(button.textContent));
+                    grid.appendChild(button);
+                }
+            }
+        }
+
+        function selectSymbol(symbol) {
+            selectedSymbols.push(symbol);
+            document.getElementById('selected').textContent = `Selected: ${selectedSymbols.join('')}`;
+        }
+
+        function resetSelection() {
+            selectedSymbols = [];
+            document.getElementById('selected').textContent = 'Selected: ';
+            document.getElementById('message').textContent = '';
+        }
+
+        function startRound() {
+            correctAnswers = 0;
+            incorrectAnswers = 0;
+            hintsUsed = 0;
+            populateGrid();
+            const currentElement = elements[0];
+            document.getElementById('info').textContent = `Construct: ${currentElement.symbol} (${currentElement.name})`;
+            document.getElementById('round').textContent = `Round ${currentRound}`;
+            if (timerOption) {
+                startTimer();
+            }
+        }
+
+        function askTimerOption() {
+            timerOption = confirm('Do you want to use a timer?');
+            if (timerOption) {
+                document.getElementById('timer').style.display = 'block';
+            }
+        }
+
+        function startTimer() {
+            timeStarted = Date.now();
+            timerRunning = true;
+            updateTimer();
+        }
+
+        function updateTimer() {
+            if (timerRunning) {
+                const elapsedTime = Math.floor((Date.now() - timeStarted) / 1000);
+                const minutes = Math.floor(elapsedTime / 60);
+                const seconds = elapsedTime % 60;
+                document.getElementById('timer').textContent = `Time: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                if (elapsedTime > 300) {
+                    hintSuggestion();
+                }
+                setTimeout(updateTimer, 1000);
+            }
+        }
+
+        function hintSuggestion() {
+            if (confirm('Do you need a hint?')) {
+                giveHint();
+            }
+        }
+
+        function giveHint() {
+            const currentElement = elements[0];
+            const hint = currentElement.symbol.slice(0, selectedSymbols.length + 1);
+            document.getElementById('message').textContent = `Hint: ${hint}`;
+            hintsUsed++;
+        }
+
+        function submitAnswer() {
+            const currentElement = elements[0];
+            if (selectedSymbols.join('') === currentElement.symbol) {
+                document.getElementById('message').textContent = 'Correct! Congratulations!';
+                correctAnswers++;
+            } else {
+                document.getElementById('message').textContent = 'Incorrect. Moving to next element.';
+                incorrectAnswers++;
+            }
+            nextElement();
+        }
+
+        function nextElement() {
+            if (elements.length > 1) {
+                resetSelection();
+                elements.shift();
+                const currentElement = elements[0];
+                document.getElementById('info').textContent = `Construct: ${currentElement.symbol} (${currentElement.name})`;
+            } else {
+                endRound();
+            }
+        }
+
+        function endRound() {
+            timerRunning = false;
+            currentRound++;
+            alert(`Round Summary:\n\nCorrect Answers: ${correctAnswers}\nIncorrect Answers: ${incorrectAnswers}\nHints Used: ${hintsUsed}`);
+            elements.sort(() => Math.random() - 0.5);
+            startRound();
+        }
+    </script>
+</body>
+</html>
