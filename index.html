@@ -26,6 +26,16 @@
         .header .timer, .header .hint-reset {
             font-size: 18px;
         }
+        .timer {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 18px;
+            background-color: #fff;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
         .hint-reset button {
             margin-right: 10px;
         }
@@ -41,6 +51,11 @@
             height: 50px;
             font-size: 16px;
             text-align: center;
+            background-color: #e0e0e0;
+            border: 1px solid #ccc;
+        }
+        .grid button:hover {
+            background-color: #d0d0d0;
         }
         .info {
             margin-bottom: 10px;
@@ -64,6 +79,31 @@
             margin-bottom: 10px;
             font-size: 18px;
         }
+        .quickest-time {
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        .summary {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: left;
+        }
+        .summary h2 {
+            margin-top: 0;
+        }
+        .summary button {
+            display: block;
+            margin: 20px auto 0;
+            padding: 10px 20px;
+            font-size: 18px;
+        }
     </style>
 </head>
 <body>
@@ -73,7 +113,7 @@
                 <button onclick="giveHint()">Hint</button>
                 <button onclick="resetSelection()">Reset</button>
             </div>
-            <div class="timer" id="timer"></div>
+            <div class="timer" id="timer">Time: 00:00</div>
         </div>
         <div class="info" id="info"></div>
         <div class="selected-bar" id="selected">Selected: </div>
@@ -82,11 +122,21 @@
         <button class="submit-btn" onclick="submitAnswer()">Submit Answer</button>
         <div class="round" id="round"></div>
         <div class="score" id="score"></div>
+        <div class="quickest-time" id="quickestTime">Quickest Time: N/A</div>
+    </div>
+
+    <div class="summary" id="summary">
+        <h2>Round Summary</h2>
+        <p id="summaryCorrect"></p>
+        <p id="summaryIncorrect"></p>
+        <p id="summaryHints"></p>
+        <p id="summaryTime"></p>
+        <button onclick="closeSummary()">Close</button>
     </div>
 
     <script>
         const periodicTable = [
-            'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 
+            'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca',
             'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr', 
             'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 
             'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 
@@ -94,6 +144,8 @@
             'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og'
         ];
         
+        const numbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
         const elements = [
             { symbol: 'H2O', name: 'Water', description: 'Essential for all known forms of life.' },
             { symbol: 'CO2', name: 'Carbon Dioxide', description: 'A greenhouse gas.' },
@@ -106,7 +158,6 @@
             { symbol: 'H2SO4', name: 'Sulfuric Acid', description: 'Used in car batteries.' },
             { symbol: 'C6H12O6', name: 'Glucose', description: 'A simple sugar.' },
         ];
-        elements.sort(() => Math.random() - 0.5);
 
         let currentRound = 1;
         let correctAnswers = 0;
@@ -116,6 +167,9 @@
         let timerOption = false;
         let timerRunning = false;
         let timeStarted = null;
+        let questionsAsked = 0;
+        const maxQuestionsPerRound = 5;
+        let quickestTime = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             startRound();
@@ -126,22 +180,43 @@
             const grid = document.getElementById('grid');
             grid.innerHTML = '';
 
-            let requiredSymbols = elements[0].symbol.split('');
-            requiredSymbols = requiredSymbols.filter(symbol => !periodicTable.includes(symbol));
-            requiredSymbols = [...periodicTable, ...requiredSymbols];
-            requiredSymbols.sort(() => Math.random() - 0.5);
-
+            // Use the periodicTable and numbers to populate the grid
+            const requiredSymbols = [...periodicTable, ...numbers];
             for (let row = 0; row < 15; row++) {
                 for (let col = 0; col < 15; col++) {
                     const button = document.createElement('button');
-                    button.textContent = requiredSymbols[Math.floor(Math.random() * requiredSymbols.length)];
+                    const index = (row * 15 + col) % requiredSymbols.length;
+                    button.textContent = requiredSymbols[index];
+                    button.style.backgroundColor = getColor(requiredSymbols[index]);
                     button.addEventListener('click', () => selectSymbol(button.textContent));
                     grid.appendChild(button);
                 }
             }
         }
 
+        function getColor(symbol) {
+            const colors = {
+                'H': '#f5c6cb', 'He': '#d4edda', 'Li': '#d1ecf1', 'Be': '#cce5ff', 'B': '#e2e3e5', 'C': '#f8d7da', 'N': '#c3e6cb', 'O': '#bee5eb', 'F': '#b8daff', 'Ne': '#d6d8db',
+                'Na': '#f5c6cb', 'Mg': '#d4edda', 'Al': '#d1ecf1', 'Si': '#cce5ff', 'P': '#e2e3e5', 'S': '#f8d7da', 'Cl': '#c3e6cb', 'Ar': '#bee5eb', 'K': '#b8daff', 'Ca': '#d6d8db',
+                'Sc': '#f5c6cb', 'Ti': '#d4edda', 'V': '#d1ecf1', 'Cr': '#cce5ff', 'Mn': '#e2e3e5', 'Fe': '#f8d7da', 'Co': '#c3e6cb', 'Ni': '#bee5eb', 'Cu': '#b8daff', 'Zn': '#d6d8db',
+                'Ga': '#f5c6cb', 'Ge': '#d4edda', 'As': '#d1ecf1', 'Se': '#cce5ff', 'Br': '#e2e3e5', 'Kr': '#f8d7da', 'Rb': '#c3e6cb', 'Sr': '#bee5eb', 'Y': '#b8daff', 'Zr': '#d6d8db',
+                'Nb': '#f5c6cb', 'Mo': '#d4edda', 'Tc': '#d1ecf1', 'Ru': '#cce5ff', 'Rh': '#e2e3e5', 'Pd': '#f8d7da', 'Ag': '#c3e6cb', 'Cd': '#bee5eb', 'In': '#b8daff', 'Sn': '#d6d8db',
+                'Sb': '#f5c6cb', 'Te': '#d4edda', 'I': '#d1ecf1', 'Xe': '#cce5ff', 'Cs': '#e2e3e5', 'Ba': '#f8d7da', 'La': '#c3e6cb', 'Ce': '#bee5eb', 'Pr': '#b8daff', 'Nd': '#d6d8db',
+                'Pm': '#f5c6cb', 'Sm': '#d4edda', 'Eu': '#d1ecf1', 'Gd': '#cce5ff', 'Tb': '#e2e3e5', 'Dy': '#f8d7da', 'Ho': '#c3e6cb', 'Er': '#bee5eb', 'Tm': '#b8daff', 'Yb': '#d6d8db',
+                'Lu': '#f5c6cb', 'Hf': '#d4edda', 'Ta': '#d1ecf1', 'W': '#cce5ff', 'Re': '#e2e3e5', 'Os': '#f8d7da', 'Ir': '#c3e6cb', 'Pt': '#bee5eb', 'Au': '#b8daff', 'Hg': '#d6d8db',
+                'Tl': '#f5c6cb', 'Pb': '#d4edda', 'Bi': '#d1ecf1', 'Po': '#cce5ff', 'At': '#e2e3e5', 'Rn': '#f8d7da', 'Fr': '#c3e6cb', 'Ra': '#bee5eb', 'Ac': '#b8daff', 'Th': '#d6d8db',
+                'Pa': '#f5c6cb', 'U': '#d4edda', 'Np': '#d1ecf1', 'Pu': '#cce5ff', 'Am': '#e2e3e5', 'Cm': '#f8d7da', 'Bk': '#c3e6cb', 'Cf': '#bee5eb', 'Es': '#b8daff', 'Fm': '#d6d8db',
+                'Md': '#f5c6cb', 'No': '#d4edda', 'Lr': '#d1ecf1', 'Rf': '#cce5ff', 'Db': '#e2e3e5', 'Sg': '#f8d7da', 'Bh': '#c3e6cb', 'Hs': '#bee5eb', 'Mt': '#b8daff', 'Ds': '#d6d8db',
+                'Rg': '#f5c6cb', 'Cn': '#d4edda', 'Nh': '#d1ecf1', 'Fl': '#cce5ff', 'Mc': '#e2e3e5', 'Lv': '#f8d7da', 'Ts': '#c3e6cb', 'Og': '#bee5eb',
+                // Add more colors as needed
+            };
+            return colors[symbol] || '#e0e0e0';
+        }
+
         function selectSymbol(symbol) {
+            if (!timerRunning) {
+                startTimer();
+            }
             selectedSymbols.push(symbol);
             document.getElementById('selected').textContent = `Selected: ${selectedSymbols.join('')}`;
         }
@@ -156,13 +231,11 @@
             correctAnswers = 0;
             incorrectAnswers = 0;
             hintsUsed = 0;
+            questionsAsked = 0;
             populateGrid();
             const currentElement = elements[0];
             document.getElementById('info').textContent = `Construct: ${currentElement.symbol} (${currentElement.name})`;
             document.getElementById('round').textContent = `Round ${currentRound}`;
-            if (timerOption) {
-                startTimer();
-            }
         }
 
         function askTimerOption() {
@@ -213,27 +286,47 @@
                 document.getElementById('message').textContent = 'Incorrect. Moving to next element.';
                 incorrectAnswers++;
             }
+            questionsAsked++;
             nextElement();
         }
 
         function nextElement() {
-            if (elements.length > 1) {
+            if (questionsAsked >= maxQuestionsPerRound || elements.length <= 1) {
+                endRound();
+            } else {
                 resetSelection();
                 elements.shift();
                 const currentElement = elements[0];
                 document.getElementById('info').textContent = `Construct: ${currentElement.symbol} (${currentElement.name})`;
-            } else {
-                endRound();
             }
         }
 
         function endRound() {
             timerRunning = false;
-            currentRound++;
-            alert(`Round Summary:\n\nCorrect Answers: ${correctAnswers}\nIncorrect Answers: ${incorrectAnswers}\nHints Used: ${hintsUsed}`);
+            const elapsedTime = Math.floor((Date.now() - timeStarted) / 1000);
+            const minutes = Math.floor(elapsedTime / 60);
+            const seconds = elapsedTime % 60;
+            const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (quickestTime === null || elapsedTime < quickestTime) {
+                quickestTime = elapsedTime;
+                document.getElementById('quickestTime').textContent = `Quickest Time: ${timeString}`;
+            }
+
+            document.getElementById('summaryCorrect').textContent = `Correct Answers: ${correctAnswers}`;
+            document.getElementById('summaryIncorrect').textContent = `Incorrect Answers: ${incorrectAnswers}`;
+            document.getElementById('summaryHints').textContent = `Hints Used: ${hintsUsed}`;
+            document.getElementById('summaryTime').textContent = `Time Taken: ${timeString}`;
+            document.getElementById('summary').style.display = 'block';
+        }
+
+        function closeSummary() {
+            document.getElementById('summary').style.display = 'none';
             elements.sort(() => Math.random() - 0.5);
+            currentRound++;
             startRound();
         }
     </script>
 </body>
 </html>
+
