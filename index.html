@@ -26,16 +26,6 @@
         .header .timer, .header .hint-reset {
             font-size: 18px;
         }
-        .timer {
-            position: absolute;
-            top: 10px;
-            right: 20px;
-            font-size: 18px;
-            background-color: #fff;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
         .hint-reset button {
             margin-right: 10px;
         }
@@ -85,24 +75,15 @@
         }
         .summary {
             display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: #fff;
-            padding: 20px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            text-align: left;
-        }
-        .summary h2 {
-            margin-top: 0;
-        }
-        .summary button {
-            display: block;
-            margin: 20px auto 0;
-            padding: 10px 20px;
             font-size: 18px;
+            background-color: #f0f8ff;
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .close-btn {
+            font-size: 16px;
+            padding: 5px 10px;
         }
     </style>
 </head>
@@ -113,7 +94,7 @@
                 <button onclick="giveHint()">Hint</button>
                 <button onclick="resetSelection()">Reset</button>
             </div>
-            <div class="timer" id="timer">Time: 00:00</div>
+            <div class="timer" id="timer"></div>
         </div>
         <div class="info" id="info"></div>
         <div class="selected-bar" id="selected">Selected: </div>
@@ -123,15 +104,13 @@
         <div class="round" id="round"></div>
         <div class="score" id="score"></div>
         <div class="quickest-time" id="quickestTime">Quickest Time: N/A</div>
-    </div>
-
-    <div class="summary" id="summary">
-        <h2>Round Summary</h2>
-        <p id="summaryCorrect"></p>
-        <p id="summaryIncorrect"></p>
-        <p id="summaryHints"></p>
-        <p id="summaryTime"></p>
-        <button onclick="closeSummary()">Close</button>
+        <div class="summary" id="summary">
+            <div id="summaryCorrect"></div>
+            <div id="summaryIncorrect"></div>
+            <div id="summaryHints"></div>
+            <div id="summaryTime"></div>
+            <button class="close-btn" onclick="closeSummary()">Close</button>
+        </div>
     </div>
 
     <script>
@@ -143,9 +122,7 @@
             'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 
             'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og'
         ];
-        
-        const numbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-
+    
         const elements = [
             { symbol: 'H2O', name: 'Water', description: 'Essential for all known forms of life.' },
             { symbol: 'CO2', name: 'Carbon Dioxide', description: 'A greenhouse gas.' },
@@ -156,9 +133,9 @@
             { symbol: 'NH3', name: 'Ammonia', description: 'Used in fertilizers.' },
             { symbol: 'HCl', name: 'Hydrochloric Acid', description: 'Found in stomach acid.' },
             { symbol: 'H2SO4', name: 'Sulfuric Acid', description: 'Used in car batteries.' },
-            { symbol: 'C6H12O6', name: 'Glucose', description: 'A simple sugar.' },
+            { symbol: 'C6H12O6', name: 'Glucose', description: 'A simple sugar.' }
         ];
-
+    
         let currentRound = 1;
         let correctAnswers = 0;
         let incorrectAnswers = 0;
@@ -170,18 +147,18 @@
         let questionsAsked = 0;
         const maxQuestionsPerRound = 5;
         let quickestTime = null;
-
+    
         document.addEventListener('DOMContentLoaded', () => {
             startRound();
             askTimerOption();
         });
-
+    
         function populateGrid() {
             const grid = document.getElementById('grid');
             grid.innerHTML = '';
-
+    
             // Use the periodicTable and numbers to populate the grid
-            const requiredSymbols = [...periodicTable, ...numbers];
+            const requiredSymbols = periodicTable.concat(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']);
             for (let row = 0; row < 15; row++) {
                 for (let col = 0; col < 15; col++) {
                     const button = document.createElement('button');
@@ -193,7 +170,7 @@
                 }
             }
         }
-
+    
         function getColor(symbol) {
             const colors = {
                 'H': '#f5c6cb', 'He': '#d4edda', 'Li': '#d1ecf1', 'Be': '#cce5ff', 'B': '#e2e3e5', 'C': '#f8d7da', 'N': '#c3e6cb', 'O': '#bee5eb', 'F': '#b8daff', 'Ne': '#d6d8db',
@@ -207,126 +184,139 @@
                 'Tl': '#f5c6cb', 'Pb': '#d4edda', 'Bi': '#d1ecf1', 'Po': '#cce5ff', 'At': '#e2e3e5', 'Rn': '#f8d7da', 'Fr': '#c3e6cb', 'Ra': '#bee5eb', 'Ac': '#b8daff', 'Th': '#d6d8db',
                 'Pa': '#f5c6cb', 'U': '#d4edda', 'Np': '#d1ecf1', 'Pu': '#cce5ff', 'Am': '#e2e3e5', 'Cm': '#f8d7da', 'Bk': '#c3e6cb', 'Cf': '#bee5eb', 'Es': '#b8daff', 'Fm': '#d6d8db',
                 'Md': '#f5c6cb', 'No': '#d4edda', 'Lr': '#d1ecf1', 'Rf': '#cce5ff', 'Db': '#e2e3e5', 'Sg': '#f8d7da', 'Bh': '#c3e6cb', 'Hs': '#bee5eb', 'Mt': '#b8daff', 'Ds': '#d6d8db',
-                'Rg': '#f5c6cb', 'Cn': '#d4edda', 'Nh': '#d1ecf1', 'Fl': '#cce5ff', 'Mc': '#e2e3e5', 'Lv': '#f8d7da', 'Ts': '#c3e6cb', 'Og': '#bee5eb',
-                // Add more colors as needed
+                'Rg': '#f5c6cb', 'Cn': '#d4edda', 'Nh': '#d1ecf1', 'Fl': '#cce5ff', 'Mc': '#e2e3e5', 'Lv': '#f8d7da', 'Ts': '#c3e6cb', 'Og': '#bee5eb'
             };
+    
             return colors[symbol] || '#e0e0e0';
         }
-
-        function selectSymbol(symbol) {
-            if (!timerRunning) {
-                startTimer();
-            }
-            selectedSymbols.push(symbol);
-            document.getElementById('selected').textContent = `Selected: ${selectedSymbols.join('')}`;
+    
+        function askQuestion() {
+            const questionIndex = Math.floor(Math.random() * elements.length);
+            const questionElement = elements[questionIndex];
+            document.getElementById('info').textContent = `Find the chemical formula for ${questionElement.name} (${questionElement.description})`;
+            document.getElementById('selected').textContent = 'Selected: ';
+            selectedSymbols = [];
         }
-
+    
+        function selectSymbol(symbol) {
+            if (selectedSymbols.length < 10) {
+                selectedSymbols.push(symbol);
+                document.getElementById('selected').textContent = `Selected: ${selectedSymbols.join('')}`;
+            }
+        }
+    
+        function submitAnswer() {
+            const answer = selectedSymbols.join('');
+            const questionText = document.getElementById('info').textContent;
+            const question = elements.find(el => questionText.includes(el.name));
+    
+            if (question && question.symbol === answer) {
+                correctAnswers++;
+                document.getElementById('message').textContent = 'Correct!';
+            } else {
+                incorrectAnswers++;
+                document.getElementById('message').textContent = 'Incorrect!';
+            }
+    
+            questionsAsked++;
+            if (questionsAsked < maxQuestionsPerRound) {
+                askQuestion();
+            } else {
+                endRound();
+            }
+        }
+    
+        function giveHint() {
+            if (hintsUsed < 2) {
+                hintsUsed++;
+                const questionText = document.getElementById('info').textContent;
+                const question = elements.find(el => questionText.includes(el.name));
+                const hint = question.symbol.slice(0, hintsUsed * 2);
+                document.getElementById('message').textContent = `Hint: ${hint}`;
+            } else {
+                document.getElementById('message').textContent = 'No more hints available';
+            }
+        }
+    
         function resetSelection() {
             selectedSymbols = [];
             document.getElementById('selected').textContent = 'Selected: ';
-            document.getElementById('message').textContent = '';
         }
-
+    
         function startRound() {
-            correctAnswers = 0;
-            incorrectAnswers = 0;
+            populateGrid();
+            askQuestion();
+            document.getElementById('round').textContent = `Round: ${currentRound}`;
+            document.getElementById('score').textContent = `Score: ${correctAnswers}`;
+            document.getElementById('message').textContent = '';
             hintsUsed = 0;
             questionsAsked = 0;
-            populateGrid();
-            const currentElement = elements[0];
-            document.getElementById('info').textContent = `Construct: ${currentElement.symbol} (${currentElement.name})`;
-            document.getElementById('round').textContent = `Round ${currentRound}`;
+    
+            if (timerOption) {
+                startTimer();
+            }
         }
-
+    
+        function endRound() {
+            if (timerOption && timerRunning) {
+                stopTimer();
+            }
+    
+            const summary = document.getElementById('summary');
+            summary.style.display = 'block';
+            document.getElementById('summaryCorrect').textContent = `Correct Answers: ${correctAnswers}`;
+            document.getElementById('summaryIncorrect').textContent = `Incorrect Answers: ${incorrectAnswers}`;
+            document.getElementById('summaryHints').textContent = `Hints Used: ${hintsUsed}`;
+            document.getElementById('summaryTime').textContent = `Time Taken: ${calculateTimeElapsed()} seconds`;
+        }
+    
+        function closeSummary() {
+            document.getElementById('summary').style.display = 'none';
+            currentRound++;
+            startRound();
+        }
+    
         function askTimerOption() {
-            timerOption = confirm('Do you want to use a timer?');
+            const useTimer = confirm('Would you like to use a timer for this game?');
+            timerOption = useTimer;
             if (timerOption) {
                 document.getElementById('timer').style.display = 'block';
             }
         }
-
+    
         function startTimer() {
-            timeStarted = Date.now();
-            timerRunning = true;
-            updateTimer();
+            if (!timerRunning) {
+                timerRunning = true;
+                timeStarted = Date.now();
+                updateTimer();
+            }
         }
-
+    
+        function stopTimer() {
+            if (timerRunning) {
+                timerRunning = false;
+                const timeElapsed = calculateTimeElapsed();
+                if (quickestTime === null || timeElapsed < quickestTime) {
+                    quickestTime = timeElapsed;
+                    document.getElementById('quickestTime').textContent = `Quickest Time: ${quickestTime} seconds`;
+                }
+            }
+        }
+    
         function updateTimer() {
             if (timerRunning) {
-                const elapsedTime = Math.floor((Date.now() - timeStarted) / 1000);
-                const minutes = Math.floor(elapsedTime / 60);
-                const seconds = elapsedTime % 60;
-                document.getElementById('timer').textContent = `Time: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                if (elapsedTime > 300) {
-                    hintSuggestion();
-                }
+                const timeElapsed = calculateTimeElapsed();
+                document.getElementById('timer').textContent = `Time: ${timeElapsed} seconds`;
                 setTimeout(updateTimer, 1000);
             }
         }
-
-        function hintSuggestion() {
-            if (confirm('Do you need a hint?')) {
-                giveHint();
+    
+        function calculateTimeElapsed() {
+            if (timeStarted) {
+                return Math.floor((Date.now() - timeStarted) / 1000);
             }
-        }
-
-        function giveHint() {
-            const currentElement = elements[0];
-            const hint = currentElement.symbol.slice(0, selectedSymbols.length + 1);
-            document.getElementById('message').textContent = `Hint: ${hint}`;
-            hintsUsed++;
-        }
-
-        function submitAnswer() {
-            const currentElement = elements[0];
-            if (selectedSymbols.join('') === currentElement.symbol) {
-                document.getElementById('message').textContent = 'Correct! Congratulations!';
-                correctAnswers++;
-            } else {
-                document.getElementById('message').textContent = 'Incorrect. Moving to next element.';
-                incorrectAnswers++;
-            }
-            questionsAsked++;
-            nextElement();
-        }
-
-        function nextElement() {
-            if (questionsAsked >= maxQuestionsPerRound || elements.length <= 1) {
-                endRound();
-            } else {
-                resetSelection();
-                elements.shift();
-                const currentElement = elements[0];
-                document.getElementById('info').textContent = `Construct: ${currentElement.symbol} (${currentElement.name})`;
-            }
-        }
-
-        function endRound() {
-            timerRunning = false;
-            const elapsedTime = Math.floor((Date.now() - timeStarted) / 1000);
-            const minutes = Math.floor(elapsedTime / 60);
-            const seconds = elapsedTime % 60;
-            const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            
-            if (quickestTime === null || elapsedTime < quickestTime) {
-                quickestTime = elapsedTime;
-                document.getElementById('quickestTime').textContent = `Quickest Time: ${timeString}`;
-            }
-
-            document.getElementById('summaryCorrect').textContent = `Correct Answers: ${correctAnswers}`;
-            document.getElementById('summaryIncorrect').textContent = `Incorrect Answers: ${incorrectAnswers}`;
-            document.getElementById('summaryHints').textContent = `Hints Used: ${hintsUsed}`;
-            document.getElementById('summaryTime').textContent = `Time Taken: ${timeString}`;
-            document.getElementById('summary').style.display = 'block';
-        }
-
-        function closeSummary() {
-            document.getElementById('summary').style.display = 'none';
-            elements.sort(() => Math.random() - 0.5);
-            currentRound++;
-            startRound();
+            return 0;
         }
     </script>
-</body>
-</html>
+    
 
